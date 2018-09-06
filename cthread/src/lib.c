@@ -4,6 +4,8 @@
 #include "../include/support.h"
 #include "../include/cthread.h"
 #include "../include/cdata.h"
+#define SUCESS 0
+#define ERROR -1
 
 
 int ccreate (void* (*start)(void*), void *arg, int prio) {
@@ -35,8 +37,13 @@ int csignal(csem_t *sem) {
 }
 
 int cidentify (char *name, int size) {
-	strncpy (name, "Sergio Cechin - 2017/1 - Teste de compilacao.", size);
-	return 0;
+    char *names =
+        "Augusto Timm do Espirito Santo  - 00113887 "
+        "Vinicius Roratto Carvalho  - 00160094";
+	if (strncpy (name, names, size))
+            return SUCESS;
+    else
+            return ERROR;
 }
 
 
