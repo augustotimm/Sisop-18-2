@@ -3,7 +3,9 @@
 #include"cthread.h"
 
 
-int initCPUSem();
+int initCPUSem(int count);
 
 int createFilaPrioridade(int prio);
 void printCpuSem();
+
+int insertContextAtPrio(TCB_t *context, int prio);
