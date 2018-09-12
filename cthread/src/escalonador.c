@@ -5,13 +5,16 @@
 #include "../include/support.h"
 #include "../include/cthread.h"
 #include "../include/cdata.h"
-#include "../include/escalonador.h"
+
 #define NCORES 1;
 
 #define PRIO1 1;
 #define PRIO2 2;
 #define PRIO3 3;
-csem_t cpuSem;
+
+int tid = 0;
+static TCB_t* executing = NULL;
+static csem_t cpuSem;
 
 //Inicia semaforo com 3 prioridades, 1 2 3 e suas respectivas filas.
 int initCPUSem(int count){
@@ -44,6 +47,7 @@ int initCPUSem(int count){
     status += AppendFila2(cpuSem.fila, fila1);
     status += AppendFila2(cpuSem.fila, fila2);
     status += AppendFila2(cpuSem.fila, fila3);
+
     return status;
 
 
@@ -91,7 +95,7 @@ int createFilaPrioridade(int prio){
     return -1;
 
 }
-
+// Imprime todas as filas de prioridades junto com suas threads
 void printCpuSem(){
 
     //printf("primeiro print");
@@ -139,6 +143,11 @@ void printCpuSem(){
 
 }
 
+/**********************
+Insere a variável de contexto na fila de prioridade de valor prio.
+Retorna 1 se conseguiu inserir corretamente.
+Retorna -1 se não consegui inserir corretamente.
+***********************/
 int insertContextAtPrio(TCB_t *context, int prio){
     int finished = 0;
     PFILA2  filaAtual;
@@ -177,19 +186,98 @@ int insertContextAtPrio(TCB_t *context, int prio){
 
 }
 
+int getNewTid(){
+    return tid++;
+}
 
+int existeFilaPrio(int prio){
+    int finished = 0;
+    PFILA2  filaAtual;
+
+
+
+
+
+    FirstFila2(cpuSem.fila);
+    while(finished == 0){
+
+        //Pega a fila de prioridades do iterador da fila
+        filaAtual = (PFILA2)GetAtIteratorFila2(cpuSem.fila);
+
+        if(filaAtual==NULL){
+            //AppendFila2(cpuSem.fila,filanew);
+            return -1;
+        }
+        else{
+            int prioAtual =  *(int*)filaAtual->first->node; //primeiro nodo dessa fila sempre é um inteiro com o valor da prioridade.
+            if(prio == prioAtual){
+
+                return 1;
+            }
+            if(prio < prioAtual){
+                return -1;
+
+            }
+
+            NextFila2(cpuSem.fila);
+        }
+
+
+    }
+    return -1;
+
+}
+
+//Verifica se haverã preempcão por prioridade
+//Retorna o numero do estado que entrou
+int estadoEntrada(TCB_t* nthread){
+    //Nao há ninguem executando
+    if( cpuSem.count  == 1){
+        nthread->state = 2;
+        executing = nthread;
+        cpuSem.count--;
+        return 2;
+    }
+    else{ //existe alguém executando
+        //Se a prioridade da thread nova é menor, passa a ser executada;
+        if(executing->prio < nthread->prio){
+            executing->state = 1;
+            nthread->state = 2;
+            executing = nthread;
+            return 2;
+        }
+        else{
+            nthread->state = 1;
+            return 1;
+        }
+    }
+
+}
+//Apenas funcoes de exemplo para testes, remover antes da entrega
+
+
+
+void threadTeste(){
+    printf("ThreadTeste executando");
+}
 //Apenas para testes, necessário remover no futuro
 int main(){
 
     initCPUSem(1);
-    createFilaPrioridade(4);
-    TCB_t * newThread = (TCB_t *) malloc(sizeof(TCB_t));
+    ccreate((void*) (*threadTeste),NULL,1);
+    printCpuSem();
+
+    //createFilaPrioridade(5);
+    /*TCB_t * newThread = (TCB_t *) malloc(sizeof(TCB_t));
     newThread->tid =0; //0 tem que ser substituido por uma funçao que retorne o tid
     newThread->state =0; //0 tem que ser substituido por uma funcao do escalonador que va verificar em qual estado deve entrar
     newThread->prio= 2;
     getcontext(&(newThread->context));
     insertContextAtPrio(newThread,newThread->prio);
-
+    int existe=existeFilaPrio(4);
+    printf("prioridade 1:%d",existe);
     printCpuSem();
-
+    */
 }
+
+

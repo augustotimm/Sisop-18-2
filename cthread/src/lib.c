@@ -1,20 +1,32 @@
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include "../include/support.h"
 #include "../include/cthread.h"
 #include "../include/cdata.h"
+#include "../include/escalonador.h"
 #define SUCESS 0
 #define ERROR -1
 
 
 int ccreate (void* (*start)(void*), void *arg, int prio) {
+    if(existeFilaPrio(1) != 1){ // Fila da prioridade correta ainda nao existe
+        initCPUSem(1);
+    }
     TCB_t * newThread = (TCB_t *) malloc(sizeof(TCB_t));
-    newThread->tid =0; //0 tem que ser substituido por uma funçao que retorne o tid
+    newThread->tid = getNewTid(); //0 tem que ser substituido por uma funçao que retorne o tid
     newThread->state =0; //0 tem que ser substituido por uma funcao do escalonador que va verificar em qual estado deve entrar
     newThread->prio= prio;
     getcontext(&(newThread->context));
+    int existe=existeFilaPrio(prio);
+
+    if(existe != 1){ // Fila da prioridade correta ainda nao existe
+        createFilaPrioridade(prio);
+    }
+    //A fila já deve existir
+    insertContextAtPrio(newThread,prio);
+    estadoEntrada(newThread);
+
 
 	return -1;
 }
