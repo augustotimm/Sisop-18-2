@@ -17,7 +17,7 @@ int ccreate (void* (*start)(void*), void *arg, int prio) {
     newThread->tid = getNewTid(); //0 tem que ser substituido por uma funçao que retorne o tid
     newThread->state =0; //0 tem que ser substituido por uma funcao do escalonador que va verificar em qual estado deve entrar
     newThread->prio= prio;
-    getcontext(&(newThread->context));
+    makecontext(&(newThread->context),(void (*)(void) ) start,1,arg); //COMO FAZER????
     int existe=existeFilaPrio(prio);
 
     if(existe != 1){ // Fila da prioridade correta ainda nao existe
