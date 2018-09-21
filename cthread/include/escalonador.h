@@ -1,6 +1,6 @@
 
-#include"support.h"
-#include"cthread.h"
+#include "support.h"
+#include "cthread.h"
 
 
 int initCPUSem(int count);

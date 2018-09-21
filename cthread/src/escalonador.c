@@ -33,6 +33,7 @@ int initCPUSem(int count){
     status += CreateFila2(fila2);
 
     status += CreateFila2(fila3);
+
     int *prio1 = (int*) malloc(sizeof(int));
     int *prio2 = (int*) malloc(sizeof(int));
     int *prio3 = (int*) malloc(sizeof(int));

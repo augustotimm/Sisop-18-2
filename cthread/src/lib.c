@@ -31,11 +31,77 @@ int ccreate (void* (*start)(void*), void *arg, int prio) {
 	return -1;
 }
 
-int csetprio(int tid, int prio) {
+int csetprio(int tid, int prio) { // tid deve ficar sempre nulo.
+    if(existeFilaPrio(prio) != 1){ // Fila da prioridade correta ainda nao existe
+        createFilaPrioridade(prio);
+    }
+
+    if(prio > 3 || prio < 0) // verifica se é prioridade válida.
+        return ERROR;
+
+    // verifica se o contexto
+
+
+//
+//    TCB_t *thread = NULL;
+//    if ((thread = blocked_join_get_thread(tid)) == NULL) { //verificar se está bloqueada por JOIN
+//        if ((thread = get_thread_from_blocked_semaphor(tid)) == NULL) {  //verificar se está bloqueada por semáforo
+//            if ((thread = ready_get_thread(tid)) == NULL) { // verifica se está na fila de aptos.
+//                if (running_thread->tid == tid) { // MUDAR, vai ser sempre null na versão 2018-2
+//                    running_thread->ticket = prio;
+//                    return SUCCESS_CODE;
+//                }
+//                else {
+//                    DEBUG(("Thread a ser modificada não existe.\n"));
+//                }
+//                return ERROR_CODE;
+//            }
+//            else {
+//                thread_in_ready = true;
+//            }
+//        }
+//    }
+//    // A thread existe e está apontada pelo ponteiro "thread".
+//
+//    if (thread_in_ready) {
+//        // Caso a thread esteja na fila de aptos, temos que removê-la da fila
+//        // com prioridade atual, e inseri-la na sua nova fila com a prioridade
+//        // certa.
+//        thread = ready_remove(thread->tid);
+//        if (thread != NULL) {
+//            thread->ticket = prio;  // Altera a prioridade da thread.
+//            ready_push(thread);     // Coloca na fila certa.
+//        }
+//    }
+//    else {
+//        // Neste caso, a thread não está nos aptos, e podemos simplesmente
+//        // alterar sua prioridade.
+//        thread->ticket = prio;
+//    }
+//
+//    return SUCCESS_CODE;
+//}
+
+
+
+
+
 	return -1;
 }
 
 int cyield(void) {
+//        init();
+//    DEBUG(("cyield>\n Thread %d cedendo a execução voluntariamente.\n", running_thread->tid));
+//
+//    // Muda-se o estado da thread em execução para "apto", e ela é colocada de volta pra fila de aptos.
+//    running_thread->state = PROCST_APTO;
+//    ready_push(running_thread);
+//
+//    // O escalonador é acionado.
+//return dispatch();
+//
+
+
 	return -1;
 }
 
@@ -50,10 +116,56 @@ int csem_init(csem_t *sem, int count) {
 }
 
 int cwait(csem_t *sem) {
+
+//        init();
+//    DEBUG(("cwait>\n"));
+//    if ((sem == NULL) || (sem->fila == NULL)) {
+//        DEBUG(("Não é possivel dar wait em um ponteiro para um semaforo nulo ou cuja fila não esteja inicializada.\n"));
+//        return ERROR_CODE;
+//    }
+//
+//    if (sem->count > 0) {
+//        DEBUG(("O recurso NÃO ESTÁ sendo usado, então a thread vai usá-lo..\n"));
+//        sem->count -= 1;
+//        return SUCCESS_CODE;
+//    }
+//    else {
+//        DEBUG(("O recurso JÁ ESTÁ sendo usado, então precisamos bloquear a thread.\n"));
+//        sem->count -= 1;
+//        running_thread->state = PROCST_BLOQ;
+//        semaphore_queue_insert_thread(sem, running_thread);
+//        DEBUG(("Thread bloqueada e inserida na fila do semáforo.\n"));
+//        dispatch();
+//    }
+//return SUCCESS_CODE;
+
+
 	return -1;
 }
 
 int csignal(csem_t *sem) {
+
+//        init();
+//    DEBUG(("csignal>\n"));
+//    if ((sem == NULL) || (sem->fila == NULL)) {
+//        // Não é possivel dar signal em um ponteiro para um semáforo nulo ou
+//        // cuja fila não esteja inicializada.
+//        return ERROR_CODE;
+//    }
+//
+//    sem->count += 1;
+//    TCB_t *thread = (TCB_t *)get_first_of_semaphore_queue(sem);
+//    if (thread != NULL) {
+//        // Existia uma thread bloqueada pelo semáforo.
+//        // Estado da thread e modificado para APTO
+//        thread->state = PROCST_APTO;
+//        return ready_push(thread);
+//    }
+//    else {
+//        //O semáforo esta livre. Segue execucao.
+//        return SUCCESS_CODE;
+}
+
 	return -1;
 }
 
