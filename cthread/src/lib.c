@@ -36,7 +36,8 @@ int ccreate (void* (*start)(void*), void *arg, int prio) {
     estadoEntrada(newThread);
 
 
-	return -1;
+	return -1; // retormar -1 não indica erro?
+	return -1; // retormar -1 não indica erro?
 }
 
 int csetprio(int tid, int prio) { // tid deve ficar sempre nulo.
@@ -113,7 +114,7 @@ int cyield(void) {
     //yieldThread();
     dispatch();
     curThread->state = PROCST_APTO;
-	return -1;
+	return -1; //retornar negativo não é sinalizar erro?
 }
 
 int cjoin(int tid) {
@@ -126,7 +127,7 @@ int csem_init(csem_t *sem, int count) {
 	return success;
 }
 
-// Dúvidas aqui.
+// não testada.
 int cwait(csem_t *sem) {
 
         if(existeFilaPrio(1) != 1) // Filas não existem/CPU não inicializada
@@ -142,7 +143,7 @@ int cwait(csem_t *sem) {
             sem->count--;
             executing->state = PROCST_BLOQ;
             AppendFila2(sem, executing);
-            // dispatch(); // como chamar o escalonador?
+            dispatch();
         }
 
 
@@ -159,19 +160,22 @@ int csignal(csem_t *sem) {
 
     sem->count++;
 
-//    TCB_t *thread = (TCB_t *)get_first_of_semaphore_queue(sem);
-//    if (thread != NULL) {
-//        // Existia uma thread bloqueada pelo semáforo.
-//        // Estado da thread e modificado para APTO
-//        thread->state = PROCST_APTO;
-//        return ready_push(thread);
-//    }
-//    else {
-//        //O semáforo esta livre. Segue execucao.
-//        return SUCCESS_CODE;
-}
+    TCB_t *thread = NULL;
+    if (FirstFila2(sem->fila) == 0) {
+        *thread  = (TCB_t *)GetAtIteratorFila2(sem->fila);
+        DeleteAtIteratorFila2(sem->fila);
+    if (thread != NULL) {
+        thread->state = PROCST_APTO;
+        return AppendFila2(aptos[thread->prio], thread); // como resolver isso? encontrar um vetor par as filas de aptos?
+//              insertContextAtPrio(newThread,prio); ou algo assim?
+//              estadoEntrada(newThread);
+    }
 
-	return -1;
+    else
+    {
+        return SUCESS;
+    }
+
 }
 
 
