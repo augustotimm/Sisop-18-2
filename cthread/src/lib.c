@@ -126,45 +126,39 @@ int csem_init(csem_t *sem, int count) {
 	return success;
 }
 
+// Dúvidas aqui.
 int cwait(csem_t *sem) {
 
-//        init();
-//    DEBUG(("cwait>\n"));
-//    if ((sem == NULL) || (sem->fila == NULL)) {
-//        DEBUG(("Não é possivel dar wait em um ponteiro para um semaforo nulo ou cuja fila não esteja inicializada.\n"));
-//        return ERROR_CODE;
-//    }
-//
-//    if (sem->count > 0) {
-//        DEBUG(("O recurso NÃO ESTÁ sendo usado, então a thread vai usá-lo..\n"));
-//        sem->count -= 1;
-//        return SUCCESS_CODE;
-//    }
-//    else {
-//        DEBUG(("O recurso JÁ ESTÁ sendo usado, então precisamos bloquear a thread.\n"));
-//        sem->count -= 1;
-//        running_thread->state = PROCST_BLOQ;
-//        semaphore_queue_insert_thread(sem, running_thread);
-//        DEBUG(("Thread bloqueada e inserida na fila do semáforo.\n"));
-//        dispatch();
-//    }
-//return SUCCESS_CODE;
+        if(existeFilaPrio(1) != 1) // Filas não existem/CPU não inicializada
+            initCPUSem(1);
+
+        if ((sem == NULL) || (sem->fila == NULL))
+            return ERROR;
+
+        if(sem->count > 0){
+            sem->count--;
+            return SUCESS;
+        } else {
+            sem->count--;
+            executing->state = PROCST_BLOQ;
+            AppendFila2(sem, executing);
+            // dispatch(); // como chamar o escalonador?
+        }
 
 
-	return -1;
+	return SUCESS;
 }
+
 
 int csignal(csem_t *sem) {
 
-//        init();
-//    DEBUG(("csignal>\n"));
-//    if ((sem == NULL) || (sem->fila == NULL)) {
-//        // Não é possivel dar signal em um ponteiro para um semáforo nulo ou
-//        // cuja fila não esteja inicializada.
-//        return ERROR_CODE;
-//    }
-//
-//    sem->count += 1;
+    if(existeFilaPrio(1) != 1) // Filas não existem/CPU não inicializada
+        initCPUSem(1);
+    if ((sem == NULL) || (sem->fila == NULL))
+        return ERROR;
+
+    sem->count++;
+
 //    TCB_t *thread = (TCB_t *)get_first_of_semaphore_queue(sem);
 //    if (thread != NULL) {
 //        // Existia uma thread bloqueada pelo semáforo.
@@ -174,11 +168,12 @@ int csignal(csem_t *sem) {
 //    }
 //    else {
 //        //O semáforo esta livre. Segue execucao.
-//        return SUCCESS_CODE;}
-
+//        return SUCCESS_CODE;
+}
 
 	return -1;
 }
+
 
 int cidentify (char *name, int size) {
     char *names =
