@@ -11,13 +11,21 @@
 
 int ccreate (void* (*start)(void*), void *arg, int prio) {
     if(existeFilaPrio(1) != 1){ // Fila da prioridade correta ainda nao existe
-        initCPUSem(1);
+        initEscalonador();
     }
     TCB_t * newThread = (TCB_t *) malloc(sizeof(TCB_t));
     newThread->tid = getNewTid(); //0 tem que ser substituido por uma funçao que retorne o tid
     newThread->state =0; //0 tem que ser substituido por uma funcao do escalonador que va verificar em qual estado deve entrar
     newThread->prio= prio;
-    makecontext(&(newThread->context),(void (*)(void) ) start,1,arg); //COMO FAZER????
+
+    getcontext(&(newThread->context) );
+    if( ( newThread->context.uc_stack.ss_sp = malloc(SIGSTKSZ) )  == NULL){
+        return -1;
+    }
+    newThread->context.uc_stack.ss_size = SIGSTKSZ;
+    newThread->context.uc_link = getEndingCtx();
+
+    makecontext(&(newThread->context),(void (*)(void)) start,1,arg); //COMO FAZER????
     int existe=existeFilaPrio(prio);
 
     if(existe != 1){ // Fila da prioridade correta ainda nao existe
@@ -100,8 +108,11 @@ int cyield(void) {
 //    // O escalonador é acionado.
 //return dispatch();
 //
-
-
+    TCB_t* curThread = getExecuting();
+    curThread->state = PROCST_APTO_SUS;
+    //yieldThread();
+    dispatch();
+    curThread->state = PROCST_APTO;
 	return -1;
 }
 
@@ -163,8 +174,8 @@ int csignal(csem_t *sem) {
 //    }
 //    else {
 //        //O semáforo esta livre. Segue execucao.
-//        return SUCCESS_CODE;
-}
+//        return SUCCESS_CODE;}
+
 
 	return -1;
 }

@@ -16,15 +16,20 @@
 int tid = 0;
 static TCB_t* executing = NULL;
 static csem_t cpuSem; //Semaforo para o estado de aptos
+static csem_t bloqSem;
+
+ucontext_t* ending_ctx;
 
 //Inicia semaforo com 3 prioridades, 1 2 3 e suas respectivas filas.
-int initCPUSem(int count){
+int initEscalonador(){
+    initEndingCTX();
+
     int status =0;
     PFILA2 fila1 = (PFILA2) malloc(sizeof(PFILA2));
     PFILA2 fila2 = (PFILA2) malloc(sizeof(PFILA2));
     PFILA2 fila3 = (PFILA2) malloc(sizeof(PFILA2));
     cpuSem.fila = (PFILA2) malloc(sizeof(PFILA2));
-    cpuSem.count = count;
+    cpuSem.count = 1;
 
     status += CreateFila2(cpuSem.fila);
 
@@ -227,7 +232,6 @@ int deleteThreadCpuSem(TCB_t *thread){
 
                         if(thread->tid == node->tid){
                             DeleteAtIteratorFila2(filaprio);
-                            free(thread);
                             return 1;
                         }
                         NextFila2(filaprio);
@@ -293,6 +297,115 @@ int existeFilaPrio(int prio){
 
 }
 
+ucontext_t* getEndingCtx(){
+    return ending_ctx;
+}
+int initEndingCTX(){
+    ending_ctx = malloc(sizeof(ucontext_t));
+
+    if(getcontext(ending_ctx)!=0 || ending_ctx == NULL){
+        return -1;
+    }
+
+    ending_ctx->uc_stack.ss_sp =malloc(SIGSTKSZ);
+    ending_ctx->uc_stack.ss_size = SIGSTKSZ;
+    ending_ctx->uc_link = NULL;
+
+    makecontext(ending_ctx,endThread,0);
+
+}
+
+void endThread(){
+    if(executing == NULL){
+        return;
+    }
+
+
+    finishThread();
+    dispatch();
+
+}
+
+int finishThread(){
+    executing->state = PROCST_TERMINO;
+
+    free(executing);
+    executing = NULL;
+    return 1;
+
+}
+
+TCB_t* findFirstContext(){
+   //printf("primeiro print");
+    int finished = 0;
+    PFILA2  filaprio;
+    TCB_t* node;
+
+
+    FirstFila2(cpuSem.fila);
+    while(finished == 0){
+
+        //Pega a fila de prioridades do iterador da fila
+        filaprio = (PFILA2)GetAtIteratorFila2(cpuSem.fila);
+
+        if(filaprio==NULL){
+            return NULL;    //Se nao existem mais filas de prioridades, retorna null pois nao existem mais processos
+        }
+        else{
+
+            int finished2 =0;
+            FirstFila2(filaprio);//Coloca o Iterador de novo no inicio da fila da prioridade
+            if (NextFila2(filaprio) ==0){//ignora o primeiro valor que é a prioridade
+                while(finished2 == 0){
+                    node = (TCB_t*)GetAtIteratorFila2(filaprio); //Retorna o primeiro processo que achar
+
+                    if(node->state == PROCST_APTO){ //Processo precisa estar apto para ser executado
+                        return node; //pois será o processo de menor prioridade e o primeiro a ter entrado
+                    }
+                    else{
+                         if (NextFila2(filaprio) !=0 ){ //Se o proximo nao existe, sai da fila
+                             finished2 =1;
+                         }
+                    }
+
+                }
+
+
+
+            }
+            else{
+                NextFila2(cpuSem.fila);//se nao achou processo vai para a processa fila de prioridades
+            }
+
+        }
+
+
+    }
+    return NULL;
+
+}
+
+int dispatch(){
+    int swap =0;
+    TCB_t* thread;
+    thread =findFirstContext();
+    if(thread == NULL){
+        return -1; //Nao existe mais thread para ser despachada
+    }
+
+
+    if(executing != NULL){
+        getcontext(&(executing->context));
+
+    }
+    if( swap==0){
+        swap =1;
+
+    }
+    return resumeThread(thread);
+
+}
+
 //Verifica se haverã preempcão por prioridade
 //Retorna o numero do estado que entrou
 int estadoEntrada(TCB_t* nthread){
@@ -304,8 +417,8 @@ int estadoEntrada(TCB_t* nthread){
     }
     else{ //existe alguém executando
         //Se a prioridade da thread nova é menor, passa a ser executada;
-        if(executing->prio < nthread->prio){
-            yieldThread(executing);
+        if(executing->prio > nthread->prio){
+            yieldThread();
             resumeThread(nthread);
             return 2;
         }
@@ -317,23 +430,19 @@ int estadoEntrada(TCB_t* nthread){
 }
 
 
-int yieldThread(TCB_t* thread){
-    if(thread->state == 2){
-        if(thread->tid == executing->tid){//Caso tenha mais de um core necessario alterar para uma pesquisa em uma lista
-            executing = NULL; //Remove a thread da execucao
-            thread->state =0;//Atualiza o estado
-            insertContextAtPrio(thread,thread->prio); //insere de volta para o semaforo de aptos
-            cpuSem.count +=1; //Aumenta a quantidade de recursos disponiveis no semaforo
-            return 1;
-        }
-        else{
-            return -1;
-        }
-    }
-    else{
-        return -1;
-    }
+int yieldThread(){
+
+
+    executing->state = PROCST_APTO_SUS;//Atualiza o estado
+    insertContextAtPrio(executing,executing->prio); //insere de volta para o semaforo de aptos
+    getcontext(&(executing->context));
+    executing = NULL; //Remove a thread da execucao
+    cpuSem.count +=1; //Aumenta a quantidade de recursos disponiveis no semaforo
+
+    return 1;
 }
+
+
 
 int resumeThread(TCB_t* thread){
     if(thread->state==1){
@@ -344,6 +453,7 @@ int resumeThread(TCB_t* thread){
             cpuSem.count-=1;//atualiza os recursos disponiveis
             deleteThreadCpuSem(thread);//remove do estado de aptos
             setcontext( &(thread->context) );
+            return 0;
         }
         else{
             return -1;
@@ -356,23 +466,35 @@ int resumeThread(TCB_t* thread){
 }
 //Apenas funcoes de exemplo para testes, remover antes da entrega
 
-
-
+TCB_t* getExecuting(){
+    return executing;
+}
+void threadTeste2(){
+    printf("\n**********ThreadTeste 2 executando*****************");
+    printCpuSem();
+}
 void threadTeste(){
     printf("\n**********ThreadTeste executando*****************");
+    ccreate((void*) (*threadTeste2),NULL,1);
+
+    cyield();
 }
+
+
 //Apenas para testes, necessário remover no futuro
 int main(){
 
-    initCPUSem(1);
+    initEscalonador();
     printf("\n---------------\n");
     printCpuSem();
-    ccreate((void*) (*threadTeste),NULL,1);
+    ccreate((void*) (*threadTeste),NULL,2);
+    ccreate((void*) (*threadTeste2),NULL,1);
     printf("\n---------------\n");
     printCpuSem();
-    yieldThread(executing);
+    yieldThread();
     printf("\n---------------\n");
     printCpuSem();
+
 
 
     //createFilaPrioridade(5);

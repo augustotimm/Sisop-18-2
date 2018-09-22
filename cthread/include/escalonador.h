@@ -1,9 +1,9 @@
 
 #include "support.h"
 #include "cthread.h"
+#include "cdata.h"
 
-
-int initCPUSem(int count);
+int initEscalonador();
 
 int createFilaPrioridade(int prio);
 void printCpuSem();
@@ -14,3 +14,16 @@ int getNewTid();
 
 int existeFilaPrio(int prio);
 int estadoEntrada(TCB_t* nthread);
+
+
+int yieldThread();
+int deleteThreadCpuSem(TCB_t *context);
+int resumeThread(TCB_t* thread);
+
+void endThread();
+int initEndingCTX();
+int finishThread();
+int dispatch();
+ucontext_t* getEndingCtx();
+TCB_t* getExecuting();
+TCB_t* findFirstContext();
