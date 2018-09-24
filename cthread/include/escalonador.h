@@ -5,7 +5,6 @@
 
 int initEscalonador();
 
-int createFilaPrioridade(int prio);
 void printCpuSem();
 
 int insertContextAtPrio(TCB_t *context, int prio);
@@ -27,3 +26,8 @@ int dispatch();
 ucontext_t* getEndingCtx();
 TCB_t* getExecuting();
 TCB_t* findFirstContext();
+
+
+TCB_t *findAptoTID(int tid);
+int joinThread(int tid);
+TCB_t* findJoinThread(int tid);

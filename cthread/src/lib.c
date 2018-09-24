@@ -29,35 +29,39 @@ int ccreate (void* (*start)(void*), void *arg, int prio) {
     int existe=existeFilaPrio(prio);
 
     if(existe != 1){ // Fila da prioridade correta ainda nao existe
-        createFilaPrioridade(prio);
+        return ERROR;
     }
     //A fila já deve existir
     insertContextAtPrio(newThread,prio);
     estadoEntrada(newThread);
 
 
-	return -1; // retormar -1 não indica erro?
+	return SUCESS; // retormar -1 não indica erro?
 }
-// Não testada.
+
 int csetprio(int tid, int prio) { // tid deve ficar sempre nulo.
     TCB_t * thread;
-    if(existeFilaPrio(prio) != 1){ // Fila da prioridade correta ainda nao existe
-        createFilaPrioridade(prio);
+
+    if(prio < 1 ){
+        return ERROR;
+    }
+    if(existeFilaPrio(1) != 1){ // Fila da prioridade correta ainda nao existe
+        initEscalonador();
     }
 
-
-    if(prio > 3 || prio < 0) // verifica se é prioridade válida.
-        return ERROR;
-
     // busca o ID na fila de aptos
-    thread = searchID(tid, cpuSem.fila);
+    thread = findAptoTID(tid);
     if(thread == NULL)
         return ERROR;
 
-    DeleteAtIteratorFila2(cpuSem.fila);
+    deleteThreadCpuSem(thread);
+    thread->prio = prio;
 
-    if(insertContextAtPrio(thread, thread->prio))
+    if(insertContextAtPrio(thread, thread->prio)){
+        estadoEntrada(thread);
         return SUCESS;
+
+    }
     else
         return ERROR;
 
@@ -75,53 +79,31 @@ int cyield(void) {
 //return dispatch();
 //
     TCB_t* curThread = getExecuting();
-    curThread->state = PROCST_APTO_SUS;
+    yieldThread();
     //yieldThread();
-    dispatch();
-    curThread->state = PROCST_APTO;
-	return -1; //retornar negativo não é sinalizar erro?
+    if( dispatch(curThread->tid) == -2){
+        deleteThreadCpuSem(curThread);
+        return 1; //Nao existia outra thread
+    }
+    return 0;//Existia outra thread
 }
 
 int cjoin(int tid) {
 
-//    int cjoin(int tid) {
-//    init();
-//    DEBUG(("Cjoin> join na thread %d pela thread %d\n", tid, running_thread->tid));
-//
-//    if (blocked_join_get_thread_waiting_for(tid) != NULL) {
-//        DEBUG(("A thread ja esta sendo esperada.\n"));
-//        return ERROR_CODE;
-//    }
-//
-//    TCB_t *thread = NULL;
-//    if ((thread = blocked_join_get_thread(tid)) == NULL) {
-//        if ((thread = get_thread_from_blocked_semaphor(tid)) == NULL) {
-//            if ((thread = ready_get_thread(tid)) == NULL) {
-//                DEBUG(("Thread não existe.\n"));
-//                // Thread não existe, retorna erro.
-//                return ERROR_CODE;
-//            }
-//        }
-//    }
-//
-//    DEBUG(("Thread existe e não é esperada.\n"));
-//    // Thread que se deseja esperar o término existe, não é esperada e está
-//    // apontada pelo ponteiro "thread".
-//    DUPLA_t *new_cjoin = (DUPLA_t *) malloc(sizeof(DUPLA_t));
-//    new_cjoin->waitedTid = tid;
-//    new_cjoin->blockedThread = running_thread;
-//    running_thread->state = PROCST_BLOQ;
-//    blocked_join_insert(new_cjoin);
-//
-//#if SHOULD_DEBUG
-//    debug_print_blocked_list();
-//#endif
-//
-//    return dispatch();
+    TCB_t* thread = findAptoTID(tid);   //Verifica se a thread existe na fila de aptos
+    if(thread ==NULL){
+        thread = findJoinThread(tid);    //Verifica se a thread existe na fila de bloqueados por join
+        if(thread == NULL){
+            return -1;
+        }
 
+    }
+    int isj = isJoined(tid);
+    if(isj != -1){
+        return -2;//Thread ja esta em join
+    }
+    return joinThread(tid);
 
-
-	return -1;
 }
 
 int csem_init(csem_t *sem, int count) {
@@ -132,9 +114,9 @@ int csem_init(csem_t *sem, int count) {
 
 // não testada.
 int cwait(csem_t *sem) {
-
+    TCB_t *exec;
         if(existeFilaPrio(1) != 1) // Filas não existem/CPU não inicializada
-            initCPUSem(1);
+            initEscalonador();
 
         if ((sem == NULL) || (sem->fila == NULL))
             return ERROR;
@@ -144,8 +126,9 @@ int cwait(csem_t *sem) {
             return SUCESS;
         } else {
             sem->count--;
-            executing->state = PROCST_BLOQ;
-            AppendFila2(sem, executing);
+            exec = getExecuting();
+            exec->state = PROCST_BLOQ;
+            AppendFila2(sem->fila, exec);
             dispatch();
         }
 
@@ -157,7 +140,7 @@ int cwait(csem_t *sem) {
 int csignal(csem_t *sem) {
 
     if(existeFilaPrio(1) != 1) // Filas não existem/CPU não inicializada
-        initCPUSem(1);
+        initEscalonador();
     if ((sem == NULL) || (sem->fila == NULL))
         return ERROR;
 
@@ -165,11 +148,12 @@ int csignal(csem_t *sem) {
 
     TCB_t *thread = NULL;
     if (FirstFila2(sem->fila) == 0) {
-        *thread  = (TCB_t *)GetAtIteratorFila2(sem->fila);
+        thread  = (TCB_t *)GetAtIteratorFila2(sem->fila);
         DeleteAtIteratorFila2(sem->fila);
+    }
     if (thread != NULL) {
         thread->state = PROCST_APTO;
-        return insertContextAtPrio(thread,prio);
+        return insertContextAtPrio(thread,thread->prio);
     }
     else
     {
@@ -179,13 +163,16 @@ int csignal(csem_t *sem) {
 }
 
 
+
+
 int cidentify (char *name, int size) {
     char *names =
         "Augusto Timm do Espirito Santo  - 00113887 "
         "Vinicius Roratto Carvalho  - 00160094";
-	if (strncpy (name, names, size))
-            return SUCESS;
-    else
-            return ERROR;
+	if (strncpy (name, names, size)){
+        return SUCESS;
+	}
+
+    return ERROR;
 }
 

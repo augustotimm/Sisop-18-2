@@ -13,16 +13,27 @@
 #define PRIO2 2;
 #define PRIO3 3;
 
-int tid = 0;
+int tid = 1;
 static TCB_t* executing = NULL;
 static csem_t cpuSem; //Semaforo para o estado de aptos
-static csem_t bloqSem;
+PFILA2 joins=NULL;
 
-ucontext_t* ending_ctx;
+ucontext_t* ending_ctx=NULL;
+
+
+int initmain();
+int unjoin(int tid);
+
+typedef struct s_join{
+	TCB_t* thread;	/* indica se recurso está ocupado ou não (livre > 0, ocupado = 0) */
+	int tid_j; 	/* ponteiro para uma fila de threads bloqueadas no semáforo */
+} joint_t;
 
 //Inicia semaforo com 3 prioridades, 1 2 3 e suas respectivas filas.
 int initEscalonador(){
     initEndingCTX();
+    joins =(PFILA2) malloc(sizeof(PFILA2));
+    CreateFila2(joins);
 
     int status =0;
     PFILA2 fila1 = (PFILA2) malloc(sizeof(PFILA2));
@@ -54,6 +65,8 @@ int initEscalonador(){
     status += AppendFila2(cpuSem.fila, fila1);
     status += AppendFila2(cpuSem.fila, fila2);
     status += AppendFila2(cpuSem.fila, fila3);
+
+    initmain();
 
     return status;
 
@@ -195,6 +208,8 @@ int insertContextAtPrio(TCB_t *context, int prio){
 
 
 
+
+
 /**********************
 Remove a variável de contexto na fila de prioridade.
 Retorna 1 se conseguiu remover corretamente.
@@ -226,6 +241,7 @@ int deleteThreadCpuSem(TCB_t *thread){
                 while(finished2 == 0){
                     node = (TCB_t*)GetAtIteratorFila2(filaprio);
                     if(node == NULL){
+                        NextFila2(cpuSem.fila);
                         finished2 =-1;
                     }
                     else{
@@ -312,6 +328,7 @@ int initEndingCTX(){
     ending_ctx->uc_link = NULL;
 
     makecontext(ending_ctx,endThread,0);
+    return 1;
 
 }
 
@@ -321,7 +338,9 @@ void endThread(){
     }
 
 
+    unjoin(executing->tid);
     finishThread();
+
     dispatch();
 
 }
@@ -331,11 +350,12 @@ int finishThread(){
 
     free(executing);
     executing = NULL;
+    cpuSem.count +=1;
     return 1;
 
 }
 
-TCB_t* findFirstContext(){
+TCB_t* findFirstContext(int oldTID){
    //printf("primeiro print");
     int finished = 0;
     PFILA2  filaprio;
@@ -352,29 +372,27 @@ TCB_t* findFirstContext(){
             return NULL;    //Se nao existem mais filas de prioridades, retorna null pois nao existem mais processos
         }
         else{
-
             int finished2 =0;
             FirstFila2(filaprio);//Coloca o Iterador de novo no inicio da fila da prioridade
             if (NextFila2(filaprio) ==0){//ignora o primeiro valor que é a prioridade
                 while(finished2 == 0){
                     node = (TCB_t*)GetAtIteratorFila2(filaprio); //Retorna o primeiro processo que achar
 
-                    if(node->state == PROCST_APTO){ //Processo precisa estar apto para ser executado
+                    if(node->state == PROCST_APTO && oldTID != node->tid){ //Processo precisa estar apto para ser executado
                         return node; //pois será o processo de menor prioridade e o primeiro a ter entrado
                     }
                     else{
                          if (NextFila2(filaprio) !=0 ){ //Se o proximo nao existe, sai da fila
                              finished2 =1;
+                             if( NextFila2(cpuSem.fila) !=0)//se nao achou processo vai para a processa fila de prioridades
+                                return NULL;
                          }
                     }
-
                 }
-
-
-
             }
             else{
-                NextFila2(cpuSem.fila);//se nao achou processo vai para a processa fila de prioridades
+                if( NextFila2(cpuSem.fila) !=0)//se nao achou processo vai para a processa fila de prioridades
+                    return NULL;
             }
 
         }
@@ -387,22 +405,29 @@ TCB_t* findFirstContext(){
 
 int dispatch(){
     int swap =0;
-    TCB_t* thread;
-    thread =findFirstContext();
-    if(thread == NULL){
-        return -1; //Nao existe mais thread para ser despachada
-    }
+    TCB_t* thread = NULL;
+
+
 
 
     if(executing != NULL){
         getcontext(&(executing->context));
-
+        thread =findFirstContext(executing->tid);   //Caso seja um yield
+    }
+    else{
+        thread =findFirstContext(-1);
+    }
+    if(thread == NULL){
+        return -2; //Nao existe mais thread para ser despachada
     }
     if( swap==0){
         swap =1;
+        executing = NULL; // to achando arriscado colocar essa tribuicao no dispatch, mas nao vi outro lugar para colocar
+        return resumeThread(thread);
 
     }
-    return resumeThread(thread);
+    return -1;
+
 
 }
 
@@ -419,7 +444,7 @@ int estadoEntrada(TCB_t* nthread){
         //Se a prioridade da thread nova é menor, passa a ser executada;
         if(executing->prio > nthread->prio){
             yieldThread();
-            resumeThread(nthread);
+            dispatch();
             return 2;
         }
         else{
@@ -433,10 +458,10 @@ int estadoEntrada(TCB_t* nthread){
 int yieldThread(){
 
 
-    executing->state = PROCST_APTO_SUS;//Atualiza o estado
+    executing->state = PROCST_APTO;//Atualiza o estado
     insertContextAtPrio(executing,executing->prio); //insere de volta para o semaforo de aptos
     getcontext(&(executing->context));
-    executing = NULL; //Remove a thread da execucao
+    //executing = NULL; //Remove a thread da execucao
     cpuSem.count +=1; //Aumenta a quantidade de recursos disponiveis no semaforo
 
     return 1;
@@ -445,7 +470,7 @@ int yieldThread(){
 
 
 int resumeThread(TCB_t* thread){
-    if(thread->state==1){
+    if(thread->state== PROCST_APTO){
         //Caso seja computador com mais de um cor necessário alterar a comparacao com executing
         if(executing == NULL && cpuSem.count>0){
             executing = thread; //passa a thread para a executando
@@ -465,39 +490,229 @@ int resumeThread(TCB_t* thread){
     return -1;
 }
 
-// Busca por um ID em uma fila e retorna o ponteiro para o nodo.
-TCB_t* searchID (PFILA2 *pfila, int tid){
+
+TCB_t *findAptoTID(int tid){
+//printf("primeiro print");
+    int finished = 0;
     PFILA2  filaprio;
     TCB_t* node;
-    FirstFila2(pFila); // posiciona interador no início da fila.
+
+
+    FirstFila2(cpuSem.fila);
+    while(finished == 0){
+
+        //Pega a fila de prioridades do iterador da fila
+        filaprio = (PFILA2)GetAtIteratorFila2(cpuSem.fila);
+
+        if(filaprio==NULL){
+            return NULL;    //Se nao existem mais filas de prioridades, retorna null pois nao existem mais processos
+        }
+        else{
+            int finished2 =0;
+            FirstFila2(filaprio);//Coloca o Iterador de novo no inicio da fila da prioridade
+            if (NextFila2(filaprio) ==0){//ignora o primeiro valor que é a prioridade
+                while(finished2 == 0){
+                    node = (TCB_t*)GetAtIteratorFila2(filaprio); //Retorna o primeiro processo que achar
+
+                    if(node->tid== tid){ //Verifica se o tid ẽ igual
+                        return node; //Se sim retorna o nodo
+                    }
+                    else{
+                         if (NextFila2(filaprio) !=0 ){ //Se o proximo nao existe, sai da fila
+                             finished2 =1;
+                             if( NextFila2(cpuSem.fila) !=0)//se nao achou processo vai para a processa fila de prioridades
+                                return NULL;
+                         }
+                    }
+                }
+            }
+            else{
+                if( NextFila2(cpuSem.fila) !=0)//se nao achou processo vai para a processa fila de prioridades
+                    return NULL;
+            }
+
+        }
+
+
+    }
+    return NULL;
+
+
+}
+
+// Busca por um ID em uma fila e retorna o ponteiro para o nodo.
+/*
+TCB_t* searchID (PFILA2 pfila, int tid){
+    PFILA2  filaprio;
+    TCB_t* node;
+    FirstFila2(pfila); // posiciona interador no início da fila.
     node = GetAtIteratorFila2(pfila); // recebe o nodo.
     if(node->tid==tid)
         return node;
 
-    while(NextFila2(PFILA2 pFila)){ //próxima fila.
+    while(NextFila2(PFILA2 pfila)){ //próxima fila.
         node = GetAtIteratorFila2(pfila);
         if(node->tid==tid)
             return node;
     }
     return NULL;
 }
+*/
 
 
-//Apenas funcoes de exemplo para testes, remover antes da entrega
+
 
 TCB_t* getExecuting(){
     return executing;
 }
+
+int initmain(){
+    TCB_t * newThread = (TCB_t *) malloc(sizeof(TCB_t));
+    newThread->tid = 0; //0 tem que ser substituido por uma funçao que retorne o tid
+    newThread->state = PROCST_EXEC; //0 tem que ser substituido por uma funcao do escalonador que va verificar em qual estado deve entrar
+    newThread->prio= 3; //prioridade mais baixa
+     if( ( newThread->context.uc_stack.ss_sp = malloc(SIGSTKSZ) )  == NULL){
+        return -1;
+    }
+    newThread->context.uc_stack.ss_size = SIGSTKSZ;
+    newThread->context.uc_link = NULL;
+    cpuSem.count -= 1;
+    executing = newThread;
+
+    return 1;
+
+}
+
+
+int joinThread(int tid){
+    joint_t* njoin = (joint_t*) malloc(sizeof(joint_t) );
+    njoin->thread =executing;
+    njoin->tid_j = tid;
+    AppendFila2(joins, njoin);
+    executing->state = PROCST_BLOQ;
+    deleteThreadCpuSem(executing);
+    cpuSem.count +=1;
+    return dispatch();
+
+
+}
+
+/***
+Retorna -1 Se nao estã na fila de joins
+***/
+int isJoined(int tid){
+    if(FirstFila2(joins) == 0){
+        joint_t* node;
+        do{
+            node = GetAtIteratorFila2(joins);
+            if(node == NULL){
+                return 0;//Iterador invalido
+            }
+            if(node->tid_j == tid){
+                return 1;
+            }
+        }while(NextFila2(joins) ==0);
+    }
+    return -1;
+}
+
+TCB_t* findJoinThread(int tid){
+    int isj = isJoined(tid);
+    if(isj != 1){
+        return NULL;
+    }
+    if(FirstFila2(joins) == 0){
+        joint_t* node;
+        do{
+            node = GetAtAntIteratorFila2(joins);
+            if(node == NULL){
+                return 0;//Iterador invalido
+            }
+            if(node->thread->tid == tid){
+                return node->thread;
+            }
+        }while(NextFila2(joins) ==0);
+    }
+    return NULL;
+
+}
+
+
+TCB_t* getThreadJoin(int tid){
+    int isj = isJoined(tid);
+    if(isj != 1){
+        return NULL;
+    }
+    if(FirstFila2(joins) == 0){
+        joint_t* node;
+        do{
+            node = GetAtIteratorFila2(joins);
+            if(node == NULL){
+                return 0;//Iterador invalido
+            }
+            if(node->tid_j == tid){
+                return node->thread;
+            }
+        }while(NextFila2(joins) ==0);
+    }
+    return NULL;
+
+}
+
+int unjoin(int tid){
+    int isj = isJoined(tid);
+    TCB_t *thread;
+    if(isj != 1){
+        return -1;
+    }
+    thread = getThreadJoin(tid);
+    if(thread == NULL){
+        return -1;
+    }
+    thread->state = PROCST_APTO;
+    return insertContextAtPrio(thread,thread->prio);
+
+}
+
+
+
+/******
+Apenas funcoes de exemplo para testes, remover antes da entrega
+******/
+/*
 void threadTeste2(){
     printf("\n**********ThreadTeste 2 executando*****************");
     printCpuSem();
 }
+
+void threadTeste3(){
+    printf("\n**********ThreadTeste 3 executando*****************");
+    printCpuSem();
+    cyield();
+    printf("\n**********ThreadTeste 3 executando*****************");
+    printf("\n---------------\n");
+    printCpuSem();
+}
 void threadTeste(){
     printf("\n**********ThreadTeste executando*****************");
-    ccreate((void*) (*threadTeste2),NULL,1);
+
+    ccreate((void*) (*threadTeste2),NULL,2);
+
+
+    ccreate((void*) (*threadTeste3),NULL,2);
+    printf("\n---------------ThreadTeste executando---------------\n");
+    printCpuSem();
+    cjoin(2);
+    printf("\n---------------ThreadTeste executando---------------\n");
+    printCpuSem();
 
     cyield();
+    printf("\n**********ThreadTeste executando*****************");
+
+    printf("\n---------------\n");
+    printCpuSem();
 }
+
 
 
 //Apenas para testes, necessário remover no futuro
@@ -510,27 +725,16 @@ int main(){
     ccreate((void*) (*threadTeste2),NULL,1);
     printf("\n---------------\n");
     printCpuSem();
-    yieldThread();
-    printf("\n---------------\n");
+    cyield();
+    printf("\n--------------- MAIN ---------------\n");
     printCpuSem();
 
 
 
     //createFilaPrioridade(5);
-    /*
-    TCB_t * newThread = (TCB_t *) malloc(sizeof(TCB_t));
-    newThread->tid =0; //0 tem que ser substituido por uma funçao que retorne o tid
-    newThread->state =0; //0 tem que ser substituido por uma funcao do escalonador que va verificar em qual estado deve entrar
-    newThread->prio= 2;
-    getcontext(&(newThread->context));
-    insertContextAtPrio(newThread,newThread->prio);
-    printf("\n\n");
-    printCpuSem();
-    deleteThreadCpuSem(newThread);
-    printf("\n\n");
-    printCpuSem();
-    */
+
+
 
 }
-
+*/
 
