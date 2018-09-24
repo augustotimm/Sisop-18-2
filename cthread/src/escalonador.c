@@ -464,6 +464,25 @@ int resumeThread(TCB_t* thread){
     }
     return -1;
 }
+
+// Busca por um ID em uma fila e retorna o ponteiro para o nodo.
+TCB_t* searchID (PFILA2 *pfila, int tid){
+    PFILA2  filaprio;
+    TCB_t* node;
+    FirstFila2(pFila); // posiciona interador no início da fila.
+    node = GetAtIteratorFila2(pfila); // recebe o nodo.
+    if(node->tid==tid)
+        return node;
+
+    while(NextFila2(PFILA2 pFila)){ //próxima fila.
+        node = GetAtIteratorFila2(pfila);
+        if(node->tid==tid)
+            return node;
+    }
+    return NULL;
+}
+
+
 //Apenas funcoes de exemplo para testes, remover antes da entrega
 
 TCB_t* getExecuting(){

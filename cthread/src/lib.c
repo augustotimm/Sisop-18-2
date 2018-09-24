@@ -5,7 +5,7 @@
 #include "../include/cthread.h"
 #include "../include/cdata.h"
 #include "../include/escalonador.h"
-#define SUCESS 0
+#define SUCESS 1
 #define ERROR -1
 
 
@@ -37,65 +37,30 @@ int ccreate (void* (*start)(void*), void *arg, int prio) {
 
 
 	return -1; // retormar -1 não indica erro?
-	return -1; // retormar -1 não indica erro?
 }
-
+// Não testada.
 int csetprio(int tid, int prio) { // tid deve ficar sempre nulo.
+    TCB_t * thread;
     if(existeFilaPrio(prio) != 1){ // Fila da prioridade correta ainda nao existe
         createFilaPrioridade(prio);
     }
 
+
     if(prio > 3 || prio < 0) // verifica se é prioridade válida.
         return ERROR;
 
-    // verifica se o contexto
+    // busca o ID na fila de aptos
+    thread = searchID(tid, cpuSem.fila);
+    if(thread == NULL)
+        return ERROR;
 
+    DeleteAtIteratorFila2(cpuSem.fila);
 
-//
-//    TCB_t *thread = NULL;
-//    if ((thread = blocked_join_get_thread(tid)) == NULL) { //verificar se está bloqueada por JOIN
-//        if ((thread = get_thread_from_blocked_semaphor(tid)) == NULL) {  //verificar se está bloqueada por semáforo
-//            if ((thread = ready_get_thread(tid)) == NULL) { // verifica se está na fila de aptos.
-//                if (running_thread->tid == tid) { // MUDAR, vai ser sempre null na versão 2018-2
-//                    running_thread->ticket = prio;
-//                    return SUCCESS_CODE;
-//                }
-//                else {
-//                    DEBUG(("Thread a ser modificada não existe.\n"));
-//                }
-//                return ERROR_CODE;
-//            }
-//            else {
-//                thread_in_ready = true;
-//            }
-//        }
-//    }
-//    // A thread existe e está apontada pelo ponteiro "thread".
-//
-//    if (thread_in_ready) {
-//        // Caso a thread esteja na fila de aptos, temos que removê-la da fila
-//        // com prioridade atual, e inseri-la na sua nova fila com a prioridade
-//        // certa.
-//        thread = ready_remove(thread->tid);
-//        if (thread != NULL) {
-//            thread->ticket = prio;  // Altera a prioridade da thread.
-//            ready_push(thread);     // Coloca na fila certa.
-//        }
-//    }
-//    else {
-//        // Neste caso, a thread não está nos aptos, e podemos simplesmente
-//        // alterar sua prioridade.
-//        thread->ticket = prio;
-//    }
-//
-//    return SUCCESS_CODE;
-//}
+    if(insertContextAtPrio(thread, thread->prio))
+        return SUCESS;
+    else
+        return ERROR;
 
-
-
-
-
-	return -1;
 }
 
 int cyield(void) {
@@ -118,6 +83,44 @@ int cyield(void) {
 }
 
 int cjoin(int tid) {
+
+//    int cjoin(int tid) {
+//    init();
+//    DEBUG(("Cjoin> join na thread %d pela thread %d\n", tid, running_thread->tid));
+//
+//    if (blocked_join_get_thread_waiting_for(tid) != NULL) {
+//        DEBUG(("A thread ja esta sendo esperada.\n"));
+//        return ERROR_CODE;
+//    }
+//
+//    TCB_t *thread = NULL;
+//    if ((thread = blocked_join_get_thread(tid)) == NULL) {
+//        if ((thread = get_thread_from_blocked_semaphor(tid)) == NULL) {
+//            if ((thread = ready_get_thread(tid)) == NULL) {
+//                DEBUG(("Thread não existe.\n"));
+//                // Thread não existe, retorna erro.
+//                return ERROR_CODE;
+//            }
+//        }
+//    }
+//
+//    DEBUG(("Thread existe e não é esperada.\n"));
+//    // Thread que se deseja esperar o término existe, não é esperada e está
+//    // apontada pelo ponteiro "thread".
+//    DUPLA_t *new_cjoin = (DUPLA_t *) malloc(sizeof(DUPLA_t));
+//    new_cjoin->waitedTid = tid;
+//    new_cjoin->blockedThread = running_thread;
+//    running_thread->state = PROCST_BLOQ;
+//    blocked_join_insert(new_cjoin);
+//
+//#if SHOULD_DEBUG
+//    debug_print_blocked_list();
+//#endif
+//
+//    return dispatch();
+
+
+
 	return -1;
 }
 
@@ -150,7 +153,7 @@ int cwait(csem_t *sem) {
 	return SUCESS;
 }
 
-
+// não testada.
 int csignal(csem_t *sem) {
 
     if(existeFilaPrio(1) != 1) // Filas não existem/CPU não inicializada
@@ -166,11 +169,8 @@ int csignal(csem_t *sem) {
         DeleteAtIteratorFila2(sem->fila);
     if (thread != NULL) {
         thread->state = PROCST_APTO;
-        return AppendFila2(aptos[thread->prio], thread); // como resolver isso? encontrar um vetor par as filas de aptos?
-//              insertContextAtPrio(newThread,prio); ou algo assim?
-//              estadoEntrada(newThread);
+        return insertContextAtPrio(thread,prio);
     }
-
     else
     {
         return SUCESS;
