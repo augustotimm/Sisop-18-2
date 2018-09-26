@@ -10,9 +10,9 @@
 
 
 int ccreate (void* (*start)(void*), void *arg, int prio) {
-    if(existeFilaPrio(1) != 1){ // Fila da prioridade correta ainda nao existe
-        initEscalonador();
-    }
+
+    initEscalonador();
+
     TCB_t * newThread = (TCB_t *) malloc(sizeof(TCB_t));
     newThread->tid = getNewTid(); //0 tem que ser substituido por uma funçao que retorne o tid
     newThread->state =0; //0 tem que ser substituido por uma funcao do escalonador que va verificar em qual estado deve entrar
@@ -36,7 +36,7 @@ int ccreate (void* (*start)(void*), void *arg, int prio) {
     estadoEntrada(newThread);
 
 
-	return SUCESS; // retormar -1 não indica erro?
+	return newThread->tid;
 }
 
 int csetprio(int tid, int prio) { // tid deve ficar sempre nulo.
@@ -45,9 +45,8 @@ int csetprio(int tid, int prio) { // tid deve ficar sempre nulo.
     if(prio < 1 ){
         return ERROR;
     }
-    if(existeFilaPrio(1) != 1){ // Fila da prioridade correta ainda nao existe
-        initEscalonador();
-    }
+    initEscalonador();
+
 
     // busca o ID na fila de aptos
     thread = findAptoTID(tid);
@@ -115,8 +114,7 @@ int csem_init(csem_t *sem, int count) {
 // não testada.
 int cwait(csem_t *sem) {
     TCB_t *exec;
-        if(existeFilaPrio(1) != 1) // Filas não existem/CPU não inicializada
-            initEscalonador();
+    initEscalonador();
 
         if ((sem == NULL) || (sem->fila == NULL))
             return ERROR;
@@ -139,8 +137,8 @@ int cwait(csem_t *sem) {
 // não testada.
 int csignal(csem_t *sem) {
 
-    if(existeFilaPrio(1) != 1) // Filas não existem/CPU não inicializada
-        initEscalonador();
+
+    initEscalonador();
     if ((sem == NULL) || (sem->fila == NULL))
         return ERROR;
 

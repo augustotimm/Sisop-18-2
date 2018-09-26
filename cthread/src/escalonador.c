@@ -9,9 +9,9 @@
 
 #define NCORES 1;
 
-#define PRIO1 1;
-#define PRIO2 2;
-#define PRIO3 3;
+#define PRIO1 0;
+#define PRIO2 1;
+#define PRIO3 2;
 
 int tid = 1;
 static TCB_t* executing = NULL;
@@ -29,8 +29,15 @@ typedef struct s_join{
 	int tid_j; 	/* ponteiro para uma fila de threads bloqueadas no semáforo */
 } joint_t;
 
+
+
+
+
 //Inicia semaforo com 3 prioridades, 1 2 3 e suas respectivas filas.
 int initEscalonador(){
+    if(executing != NULL){
+        return 1;
+    }
     initEndingCTX();
     joins =(PFILA2) malloc(sizeof(PFILA2));
     CreateFila2(joins);
@@ -339,8 +346,8 @@ void endThread(){
 
 
     unjoin(executing->tid);
-    finishThread();
 
+    finishThread();
     dispatch();
 
 }
@@ -570,7 +577,7 @@ int initmain(){
     TCB_t * newThread = (TCB_t *) malloc(sizeof(TCB_t));
     newThread->tid = 0; //0 tem que ser substituido por uma funçao que retorne o tid
     newThread->state = PROCST_EXEC; //0 tem que ser substituido por uma funcao do escalonador que va verificar em qual estado deve entrar
-    newThread->prio= 3; //prioridade mais baixa
+    newThread->prio= PRIO3; //prioridade mais baixa
      if( ( newThread->context.uc_stack.ss_sp = malloc(SIGSTKSZ) )  == NULL){
         return -1;
     }
