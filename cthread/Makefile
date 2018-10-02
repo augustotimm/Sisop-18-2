@@ -19,15 +19,15 @@ SRC_DIR=./src
 all: cthread escalonador lcthread
 
 lcthread: $(BIN_DIR)/lib.o $(BIN_DIR)/support.o $(BIN_DIR)/escalonador.o #dependências para a regra1
-	ar rcs $(LIB_DIR)/cthread.a $(BIN_DIR)/lib.o $(BIN_DIR)/support.o $(BIN_DIR)/escalonador.o
+	ar rcs $(LIB_DIR)/libcthread.a $(BIN_DIR)/lib.o $(BIN_DIR)/support.o $(BIN_DIR)/escalonador.o
 
 
 cthread: $(INC_DIR)/support.h $(INC_DIR)/cthread.h $(INC_DIR)/cdata.h
-	$(CC) -c $(SRC_DIR)/lib.c -o $(BIN_DIR)/lib.o
+	$(CC) -c $(SRC_DIR)/lib.c -o $(BIN_DIR)/lib.o -Wall
 
 
 escalonador: $(INC_DIR)/support.h $(INC_DIR)/cdata.h $(INC_DIR)/escalonador.h
-	$(CC) -c $(SRC_DIR)/escalonador.c -o $(BIN_DIR)/escalonador.o
+	$(CC) -c $(SRC_DIR)/escalonador.c -o $(BIN_DIR)/escalonador.o -Wall
 
 
 clean:

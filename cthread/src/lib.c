@@ -67,16 +67,7 @@ int csetprio(int tid, int prio) { // tid deve ficar sempre nulo.
 }
 
 int cyield(void) {
-//        init();
-//    DEBUG(("cyield>\n Thread %d cedendo a execução voluntariamente.\n", running_thread->tid));
-//
-//    // Muda-se o estado da thread em execução para "apto", e ela é colocada de volta pra fila de aptos.
-//    running_thread->state = PROCST_APTO;
-//    ready_push(running_thread);
-//
-//    // O escalonador é acionado.
-//return dispatch();
-//
+
     TCB_t* curThread = getExecuting();
     yieldThread();
     //yieldThread();
@@ -111,7 +102,6 @@ int csem_init(csem_t *sem, int count) {
 	return success;
 }
 
-// não testada.
 int cwait(csem_t *sem) {
     TCB_t *exec;
     initEscalonador();
@@ -123,18 +113,16 @@ int cwait(csem_t *sem) {
             sem->count--;
             return SUCESS;
         } else {
-            sem->count--;
             exec = getExecuting();
             exec->state = PROCST_BLOQ;
             AppendFila2(sem->fila, exec);
-            dispatch();
+            blockThread();
         }
 
 
 	return SUCESS;
 }
 
-// não testada.
 int csignal(csem_t *sem) {
 
 
@@ -142,16 +130,21 @@ int csignal(csem_t *sem) {
     if ((sem == NULL) || (sem->fila == NULL))
         return ERROR;
 
-    sem->count++;
 
     TCB_t *thread = NULL;
     if (FirstFila2(sem->fila) == 0) {
         thread  = (TCB_t *)GetAtIteratorFila2(sem->fila);
         DeleteAtIteratorFila2(sem->fila);
     }
+    else{
+        sem->count++;
+    }
     if (thread != NULL) {
         thread->state = PROCST_APTO;
-        return insertContextAtPrio(thread,thread->prio);
+        insertContextAtPrio(thread,thread->prio);
+        return estadoEntrada(thread);
+
+
     }
     else
     {

@@ -31,3 +31,6 @@ TCB_t* findFirstContext();
 TCB_t *findAptoTID(int tid);
 int joinThread(int tid);
 TCB_t* findJoinThread(int tid);
+int isJoined(int tid);
+
+int blockThread();

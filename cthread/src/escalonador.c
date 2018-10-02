@@ -410,6 +410,11 @@ TCB_t* findFirstContext(int oldTID){
 
 }
 
+int blockThread(){
+    cpuSem.count++;
+    return dispatch();
+}
+
 int dispatch(){
     int swap =0;
     TCB_t* thread = NULL;
@@ -547,26 +552,6 @@ TCB_t *findAptoTID(int tid){
 
 }
 
-// Busca por um ID em uma fila e retorna o ponteiro para o nodo.
-/*
-TCB_t* searchID (PFILA2 pfila, int tid){
-    PFILA2  filaprio;
-    TCB_t* node;
-    FirstFila2(pfila); // posiciona interador no início da fila.
-    node = GetAtIteratorFila2(pfila); // recebe o nodo.
-    if(node->tid==tid)
-        return node;
-
-    while(NextFila2(PFILA2 pfila)){ //próxima fila.
-        node = GetAtIteratorFila2(pfila);
-        if(node->tid==tid)
-            return node;
-    }
-    return NULL;
-}
-*/
-
-
 
 
 TCB_t* getExecuting(){
@@ -681,67 +666,4 @@ int unjoin(int tid){
 
 }
 
-
-
-/******
-Apenas funcoes de exemplo para testes, remover antes da entrega
-******/
-/*
-void threadTeste2(){
-    printf("\n**********ThreadTeste 2 executando*****************");
-    printCpuSem();
-}
-
-void threadTeste3(){
-    printf("\n**********ThreadTeste 3 executando*****************");
-    printCpuSem();
-    cyield();
-    printf("\n**********ThreadTeste 3 executando*****************");
-    printf("\n---------------\n");
-    printCpuSem();
-}
-void threadTeste(){
-    printf("\n**********ThreadTeste executando*****************");
-
-    ccreate((void*) (*threadTeste2),NULL,2);
-
-
-    ccreate((void*) (*threadTeste3),NULL,2);
-    printf("\n---------------ThreadTeste executando---------------\n");
-    printCpuSem();
-    cjoin(2);
-    printf("\n---------------ThreadTeste executando---------------\n");
-    printCpuSem();
-
-    cyield();
-    printf("\n**********ThreadTeste executando*****************");
-
-    printf("\n---------------\n");
-    printCpuSem();
-}
-
-
-
-//Apenas para testes, necessário remover no futuro
-int main(){
-
-    initEscalonador();
-    printf("\n---------------\n");
-    printCpuSem();
-    ccreate((void*) (*threadTeste),NULL,2);
-    ccreate((void*) (*threadTeste2),NULL,1);
-    printf("\n---------------\n");
-    printCpuSem();
-    cyield();
-    printf("\n--------------- MAIN ---------------\n");
-    printCpuSem();
-
-
-
-    //createFilaPrioridade(5);
-
-
-
-}
-*/
 
